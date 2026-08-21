@@ -1,12 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -42,136 +43,75 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
-}
-
-.dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+:root, .dark {
+  --radius: 0.14rem;
+  --background: oklch(0.095 0.008 78);
+  --foreground: oklch(0.91 0.018 84);
+  --card: oklch(0.13 0.01 78);
+  --card-foreground: oklch(0.91 0.018 84);
+  --popover: oklch(0.15 0.011 78);
+  --popover-foreground: oklch(0.92 0.018 84);
+  --primary: #F59E0B;
+  --primary-foreground: #100b03;
+  --secondary: oklch(0.19 0.013 78);
+  --secondary-foreground: oklch(0.78 0.016 84);
+  --muted: oklch(0.17 0.011 78);
+  --muted-foreground: oklch(0.62 0.018 84);
+  --accent: oklch(0.22 0.022 78);
+  --accent-foreground: oklch(0.96 0.02 84);
+  --destructive: #DC2626;
+  --destructive-foreground: #fff7ed;
+  --border: oklch(0.42 0.035 78 / 48%);
+  --input: oklch(0.3 0.025 78 / 70%);
+  --ring: #F59E0B;
+  --chart-1: #F59E0B;
+  --chart-2: #DC2626;
+  --chart-3: oklch(0.73 0.13 147);
+  --chart-4: oklch(0.71 0.1 230);
+  --chart-5: oklch(0.67 0.1 310);
+  --sidebar: oklch(0.11 0.01 78);
+  --sidebar-foreground: oklch(0.9 0.018 84);
+  --sidebar-primary: #F59E0B;
+  --sidebar-primary-foreground: #100b03;
+  --sidebar-accent: oklch(0.19 0.02 78);
+  --sidebar-accent-foreground: oklch(0.94 0.02 84);
+  --sidebar-border: oklch(0.42 0.035 78 / 48%);
+  --sidebar-ring: #F59E0B;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
+  * { @apply border-border outline-ring/50; }
+  html { background: #100d08; }
   body {
     @apply bg-background text-foreground;
+    min-height: 100vh;
+    font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    background-image: radial-gradient(circle at 55% -30%, rgba(245, 158, 11, 0.1), transparent 42%), linear-gradient(rgba(245, 158, 11, 0.017) 1px, transparent 1px);
+    background-size: auto, 100% 4px;
   }
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
-  }
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a[href], select:not(:disabled) { @apply cursor-pointer; }
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
+  .terminal-panel {
+    @apply border border-border bg-card/80 shadow-[0_0_0_1px_rgba(245,158,11,0.025),0_12px_40px_rgba(0,0,0,0.28)];
+    background-image: linear-gradient(90deg, rgba(245,158,11,0.028) 1px, transparent 1px), linear-gradient(rgba(245,158,11,0.018) 1px, transparent 1px);
+    background-size: 18px 18px;
   }
+  .terminal-kicker { @apply text-[10px] font-semibold uppercase tracking-[0.24em] text-primary; }
+  .terminal-heading { @apply font-mono text-xl font-semibold tracking-tight text-foreground; }
+  .status-critical { color: #DC2626; border-color: rgba(220, 38, 38, 0.58); background: rgba(220, 38, 38, 0.11); }
+  .status-high { color: #F59E0B; border-color: rgba(245, 158, 11, 0.58); background: rgba(245, 158, 11, 0.11); }
+  .status-medium { color: #F59E0B; border-color: rgba(245, 158, 11, 0.38); background: rgba(245, 158, 11, 0.07); }
+  .status-low { color: oklch(0.78 0.12 147); border-color: oklch(0.7 0.12 147 / 0.42); background: oklch(0.7 0.12 147 / 0.07); }
+  .leaflet-container { background: #0e0c08; font-family: "IBM Plex Mono", monospace; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #1d170e; color: #f7e7c0; border: 1px solid rgba(245,158,11,0.4); border-radius: 0; }
+  .leaflet-popup-content { font-size: 12px; line-height: 1.45; }
+  .leaflet-control-attribution { background: rgba(16, 13, 8, 0.76) !important; color: #9a896c !important; }
+  .leaflet-control-attribution a { color: #F59E0B !important; }
+}
 
-  .flex {
-    min-height: 0;
-    min-width: 0;
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
-    }
-  }
+@media (prefers-reduced-motion: no-preference) {
+  .terminal-pulse { animation: terminal-pulse 2.4s ease-in-out infinite; }
+  @keyframes terminal-pulse { 0%, 100% { opacity: 0.58; } 50% { opacity: 1; } }
 }

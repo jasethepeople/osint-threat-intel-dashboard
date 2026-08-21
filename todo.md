@@ -1,0 +1,20 @@
+# Project TODO
+
+- [x] Define and migrate the durable threat-intelligence data model, including source settings, threat items, geographic observations, audit-chain entries, and report metadata.
+- [x] Implement NVD/CVE, GitHub Security Advisory, and RSS source adapters with safe request handling, deduplication, and configurable enablement.
+- [x] Implement a server-side enrichment pipeline that extracts CVE identifiers, affected stacks, severity, CVSS data, geographic tags, and deterministic priority signals.
+- [x] Add server-side LLM analyst briefs for individual threats and the daily digest, with source-grounded prompts and graceful fallback behavior.
+- [x] Implement a configurable 15–60 minute recurring ingestion job with a secured scheduled endpoint, idempotency, and in-app run-now control.
+- [x] Store all ingestion, enrichment, user, and system events in an append-only hash-chained audit log.
+- [x] Trigger owner notifications for newly detected Critical threats and flagged zero-day indicators.
+- [x] Build the terminal-themed dashboard shell and exact sidebar navigation: Threat Map, Triage Matrix, CVE Feed, Audit Log, Report Generator.
+- [x] Build an interactive Leaflet global threat map with density-scaled markers, tooltips, and threat detail interactions.
+- [x] Build a live-updating priority triage matrix with exact Critical, High, Medium, and Low tiers; amber #F59E0B and crimson #DC2626 indicators; and inline analyst briefs.
+- [x] Build the CVE Feed and tamper-evident Audit Log views with filters, provenance, integrity indicators, and accessible loading/error states.
+- [x] Implement one-click client-side PDF intelligence report generation, including the threat summary, triage snapshot, top CVEs, audit excerpt, and inline daily brief.
+- [x] Add automated tests for source normalization, enrichment, audit-chain verification, report data assembly, and scheduled-ingestion idempotency.
+- [x] Verify desktop and mobile layouts, source error handling, and the end-to-end dashboard workflow before delivery.
+- [x] Add client-side filters and explicit loading/error states to the CVE Feed and Audit Log views.
+- [x] Add deterministic tests for audit-chain record verification, report payload assembly, and source idempotency keys.
+- [x] Validate source failure handling and the full ingestion pathway with documented, non-mocked source-adapter checks.
+- [x] Run a live SecurityWeek ingestion end to end and verify persisted records, map observations, append-only audit entries, and audit-chain validity.

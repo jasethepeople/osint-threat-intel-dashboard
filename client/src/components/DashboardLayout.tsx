@@ -21,15 +21,18 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { FileText, Globe2, LayoutList, LogOut, PanelLeft, Rss, ShieldCheck } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
+  { icon: Globe2, label: "Threat Map", path: "/" },
+  { icon: LayoutList, label: "Triage Matrix", path: "/triage" },
+  { icon: Rss, label: "CVE Feed", path: "/feed" },
+  { icon: ShieldCheck, label: "Audit Log", path: "/audit" },
+  { icon: FileText, label: "Report Generator", path: "/reports" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -152,32 +155,33 @@ function DashboardLayoutContent({
   return (
     <>
       <div className="relative" ref={sidebarRef}>
-        <Sidebar
+          <Sidebar
           collapsible="icon"
-          className="border-r-0"
+          className="border-r border-primary/20 bg-sidebar"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-16 justify-center">
+          <SidebarHeader className="h-20 justify-center border-b border-primary/20">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-8 w-8 flex items-center justify-center hover:bg-primary/10 rounded-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
                 aria-label="Toggle navigation"
               >
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
-                    Navigation
-                  </span>
+                  <div className="min-w-0">
+                    <span className="block font-mono text-sm font-semibold tracking-[0.16em] text-primary truncate">SENTINEL ATLAS</span>
+                    <span className="block font-mono text-[9px] tracking-[0.18em] text-muted-foreground truncate">INTELLIGENCE CONSOLE</span>
+                  </div>
                 </div>
               ) : null}
             </div>
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
+            <SidebarMenu className="px-2 py-4">
               {menuItems.map(item => {
                 const isActive = location === item.path;
                 return (
@@ -186,7 +190,7 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
+                      className={`h-11 rounded-none transition-all font-mono text-xs tracking-wide ${isActive ? "border-l-2 border-primary bg-primary/10" : "border-l-2 border-transparent hover:bg-primary/5"}`}
                     >
                       <item.icon
                         className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
@@ -199,20 +203,20 @@ function DashboardLayoutContent({
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="p-3">
+          <SidebarFooter className="border-t border-primary/20 p-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
+                <button className="flex items-center gap-3 rounded-none px-1 py-1 hover:bg-primary/5 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Avatar className="h-9 w-9 border border-primary/40 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
+                    <p className="font-mono text-xs font-medium truncate leading-none">
                       {user?.name || "-"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
+                    <p className="font-mono text-[10px] text-muted-foreground truncate mt-1.5">
                       {user?.email || "-"}
                     </p>
                   </div>
