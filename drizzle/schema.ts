@@ -28,7 +28,7 @@ export const users = mysqlTable("users", {
 export const sourceKinds = ["nvd", "github", "rss"] as const;
 export const severityTiers = ["Critical", "High", "Medium", "Low"] as const;
 export const auditActorKinds = ["system", "user", "schedule"] as const;
-export const alertChannels = ["owner_in_app", "audit_only"] as const;
+export const alertChannels = ["owner_in_app", "audit_only", "slack_webhook", "teams_webhook"] as const;
 
 /** Configurable, source-specific polling state. */
 export const intelligenceSources = mysqlTable(
@@ -156,6 +156,37 @@ export const threatAlertRoutes = mysqlTable(
   table => [index("threat_alert_routes_enabled_idx").on(table.enabled), index("threat_alert_routes_watchlist_idx").on(table.watchlistId)]
 );
 
+/** Reusable business-unit triage scopes over retained, source-attributed threat records. */
+export const savedTriageViews = mysqlTable(
+  "saved_triage_views",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 120 }).notNull(),
+    stackTerms: json("stackTerms").$type<string[]>().notNull(),
+    severities: json("severities").$type<(typeof severityTiers)[number][]>().notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("saved_triage_views_enabled_idx").on(table.enabled)]
+);
+
+/** One explicit retention policy controls aging intelligence cleanup; audit events remain immutable. */
+export const intelligenceRetentionPolicies = mysqlTable(
+  "intelligence_retention_policies",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    retentionDays: int("retentionDays").default(90).notNull(),
+    enabled: boolean("enabled").default(false).notNull(),
+    scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+    lastRunAt: timestamp("lastRunAt"),
+    lastPurgedCount: int("lastPurgedCount").default(0).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("intelligence_retention_policy_schedule_idx").on(table.scheduleCronTaskUid)]
+);
+
 /** Append-only hash-chain records. Database helpers only append; integrity can be checked at read time. */
 export const auditEvents = mysqlTable(
   "audit_events",
@@ -184,3 +215,5 @@ export type ThreatItem = typeof threatItems.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type ThreatWatchlist = typeof threatWatchlists.$inferSelect;
 export type ThreatAlertRoute = typeof threatAlertRoutes.$inferSelect;
+export type SavedTriageView = typeof savedTriageViews.$inferSelect;
+export type IntelligenceRetentionPolicy = typeof intelligenceRetentionPolicies.$inferSelect;

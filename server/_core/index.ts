@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { sdk } from "./sdk";
 import { serveStatic, setupVite } from "./vite";
 import { ingestScheduledSource } from "../intelligence/service";
+import { runScheduledRetention } from "../intelligence/retention";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -43,6 +44,16 @@ async function startServer() {
       const user = await sdk.authenticateRequest(req);
       if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
       return res.json(await ingestScheduledSource(user.taskUid));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return res.status(500).json({ error: message, context: { url: req.originalUrl }, timestamp: new Date().toISOString() });
+    }
+  });
+  app.post("/api/scheduled/intelligence-retention", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
+      return res.json(await runScheduledRetention(user.taskUid));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return res.status(500).json({ error: message, context: { url: req.originalUrl }, timestamp: new Date().toISOString() });

@@ -25,3 +25,7 @@
 - [x] Add in-place editing for existing watchlist names and stack terms.
 - [x] Add in-place editing for existing owner-alert rule criteria and selectable owner delivery-channel settings.
 - [x] Add selectable immediate owner-notification and audit-only delivery channels to alert routes.
+- [x] Add secure outbound webhook alert routing for Slack- and Teams-compatible incoming webhooks.
+- [x] Add saved business-unit triage views that scope retained records by named stack terms and severity.
+- [x] Add a configurable aging-intelligence retention policy with safe preview and explicit operator execution.
+- [x] Add tests and interface verification for collaboration routing, saved views, and retention controls.

@@ -3,30 +3,42 @@ import { z } from "zod";
 import { COOKIE_NAME } from "../../shared/const";
 import {
   getDashboardCounts,
+  getRetentionPolicy,
   getThreat,
   createAlertRoute,
   createWatchlist,
+  createSavedTriageView,
   deleteAlertRoute,
   deleteWatchlist,
+  deleteSavedTriageView,
   listAuditEvents,
   listAlertRoutes,
   listIntelligenceSources,
   listMapObservations,
   listThreats,
   listWatchlists,
+  listSavedTriageViews,
   updateAlertRoute,
   updateIntelligenceSource,
   updateWatchlist,
+  previewRetentionPurge,
+  updateRetentionPolicy,
+  updateSavedTriageView,
 } from "../db";
 import { createHeartbeatJob, updateHeartbeatJob } from "../_core/heartbeat";
+import { ENV } from "../_core/env";
 import { appendAuditEvent, verifyAuditChain } from "../intelligence/audit";
 import { generateDailyDigest, generateThreatBrief, ingestAllSources, ingestSource } from "../intelligence/service";
+import { executeRetentionPolicy } from "../intelligence/retention";
 import { adminProcedure, router } from "../_core/trpc";
 
 const intervalSchema = z.number().int().min(15).max(60);
 const severitySchema = z.enum(["Critical", "High", "Medium", "Low"]);
-const alertChannelSchema = z.enum(["owner_in_app", "audit_only"]);
+const alertChannelSchema = z.enum(["owner_in_app", "audit_only", "slack_webhook", "teams_webhook"]);
 const stackTermsSchema = z.array(z.string().trim().min(1).max(80)).min(1).max(24);
+const viewStackTermsSchema = z.array(z.string().trim().min(1).max(80)).max(24);
+const viewSeveritiesSchema = z.array(severitySchema).min(1).max(4);
+const retentionDaysSchema = z.number().int().min(30).max(730);
 
 function cronForInterval(minutes: number): string {
   return `0 */${minutes} * * * *`;
@@ -112,5 +124,60 @@ export const intelligenceRouter = router({
     await deleteAlertRoute(input.id);
     await appendAuditEvent({ actor: actor(ctx), eventType: "alert-route.deleted", entityType: "alert-route", entityId: String(input.id), payload: {} });
     return { id: input.id };
+  }),
+  triageViews: adminProcedure.query(() => listSavedTriageViews()),
+  createTriageView: adminProcedure.input(z.object({ name: z.string().trim().min(2).max(120), stackTerms: viewStackTermsSchema, severities: viewSeveritiesSchema, enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+    const id = await createSavedTriageView({ ...input, stackTerms: Array.from(new Set(input.stackTerms.map(term => term.trim().toLowerCase()))), severities: Array.from(new Set(input.severities)) });
+    await appendAuditEvent({ actor: actor(ctx), eventType: "triage-view.created", entityType: "triage-view", entityId: String(id), payload: input });
+    return { id };
+  }),
+  updateTriageView: adminProcedure.input(z.object({ id: z.number().int().positive(), name: z.string().trim().min(2).max(120).optional(), stackTerms: viewStackTermsSchema.optional(), severities: viewSeveritiesSchema.optional(), enabled: z.boolean().optional() })).mutation(async ({ ctx, input }) => {
+    const { id, ...values } = input;
+    await updateSavedTriageView(id, values);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "triage-view.updated", entityType: "triage-view", entityId: String(id), payload: values });
+    return { id };
+  }),
+  deleteTriageView: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    await deleteSavedTriageView(input.id);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "triage-view.deleted", entityType: "triage-view", entityId: String(input.id), payload: {} });
+    return { id: input.id };
+  }),
+  retentionPolicy: adminProcedure.query(() => getRetentionPolicy()),
+  retentionPreview: adminProcedure.input(z.object({ retentionDays: retentionDaysSchema.optional() })).query(async ({ input }) => {
+    const policy = await getRetentionPolicy();
+    if (!policy) throw new Error("Retention policy unavailable");
+    return previewRetentionPurge(input.retentionDays ?? policy.retentionDays);
+  }),
+  configureRetention: adminProcedure.input(z.object({ retentionDays: retentionDaysSchema, enabled: z.boolean() })).mutation(async ({ ctx, input }) => {
+    const policy = await getRetentionPolicy();
+    if (!policy) throw new Error("Retention policy unavailable");
+    const token = sessionToken(ctx);
+    if (policy.scheduleCronTaskUid && !input.enabled) await updateHeartbeatJob(policy.scheduleCronTaskUid, { enable: false, description: "Sentinel Atlas nightly intelligence retention" }, token);
+    await updateRetentionPolicy(policy.id, input);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "retention.configured", entityType: "retention-policy", entityId: String(policy.id), payload: input });
+    return { id: policy.id };
+  }),
+  runRetention: adminProcedure.input(z.object({ confirmation: z.literal("PURGE") })).mutation(async ({ ctx }) => {
+    const policy = await getRetentionPolicy();
+    if (!policy) throw new Error("Retention policy unavailable");
+    if (!policy.enabled) throw new Error("Enable the retention policy before running a purge");
+    return executeRetentionPolicy(policy, actor(ctx));
+  }),
+  activateRetentionSchedule: adminProcedure.mutation(async ({ ctx }) => {
+    if (!ENV.isProduction) throw new Error("Publish the dashboard before activating the nightly retention schedule.");
+    const policy = await getRetentionPolicy();
+    if (!policy) throw new Error("Retention policy unavailable");
+    if (!policy.enabled) throw new Error("Enable the retention policy before activating its schedule.");
+    const token = sessionToken(ctx);
+    let taskUid = policy.scheduleCronTaskUid;
+    if (taskUid) {
+      await updateHeartbeatJob(taskUid, { cron: "0 0 3 * * *", enable: true, description: "Sentinel Atlas nightly intelligence retention" }, token);
+    } else {
+      const created = await createHeartbeatJob({ name: `sentinel-atlas-retention-${policy.id}`, cron: "0 0 3 * * *", path: "/api/scheduled/intelligence-retention", description: "Sentinel Atlas nightly intelligence retention" }, token);
+      taskUid = created.taskUid;
+      await updateRetentionPolicy(policy.id, { scheduleCronTaskUid: taskUid });
+    }
+    await appendAuditEvent({ actor: actor(ctx), eventType: "retention.schedule-activated", entityType: "retention-policy", entityId: String(policy.id), payload: { scheduleCronTaskUid: taskUid, cron: "0 0 3 * * *" } });
+    return { taskUid };
   }),
 });

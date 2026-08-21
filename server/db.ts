@@ -1,17 +1,20 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   auditEvents,
   geoObservations,
   ingestionRuns,
   intelligenceSources,
+  intelligenceRetentionPolicies,
   InsertUser,
+  savedTriageViews,
   threatAlertRoutes,
   threatItems,
   threatWatchlists,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { retentionCutoff } from "../shared/retention";
 import { DEFAULT_SOURCES } from "./intelligence/sources";
 import type { EnrichedThreat, IngestionActor } from "./intelligence/types";
 
@@ -249,14 +252,14 @@ export async function listEnabledAlertRoutes() {
   return db.select().from(threatAlertRoutes).where(eq(threatAlertRoutes.enabled, true));
 }
 
-export async function createAlertRoute(values: { name: string; watchlistId: number | null; minSeverity: "Critical" | "High" | "Medium" | "Low"; includeZeroDays: boolean; includeKnownExploited: boolean; channel: "owner_in_app" | "audit_only"; enabled: boolean }) {
+export async function createAlertRoute(values: { name: string; watchlistId: number | null; minSeverity: "Critical" | "High" | "Medium" | "Low"; includeZeroDays: boolean; includeKnownExploited: boolean; channel: "owner_in_app" | "audit_only" | "slack_webhook" | "teams_webhook"; enabled: boolean }) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   const result = await db.insert(threatAlertRoutes).values(values);
   return Number(result[0].insertId);
 }
 
-export async function updateAlertRoute(id: number, values: { name?: string; watchlistId?: number | null; minSeverity?: "Critical" | "High" | "Medium" | "Low"; includeZeroDays?: boolean; includeKnownExploited?: boolean; channel?: "owner_in_app" | "audit_only"; enabled?: boolean }) {
+export async function updateAlertRoute(id: number, values: { name?: string; watchlistId?: number | null; minSeverity?: "Critical" | "High" | "Medium" | "Low"; includeZeroDays?: boolean; includeKnownExploited?: boolean; channel?: "owner_in_app" | "audit_only" | "slack_webhook" | "teams_webhook"; enabled?: boolean }) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   await db.update(threatAlertRoutes).set({ ...values, updatedAt: new Date() }).where(eq(threatAlertRoutes.id, id));
@@ -266,4 +269,73 @@ export async function deleteAlertRoute(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   await db.delete(threatAlertRoutes).where(eq(threatAlertRoutes.id, id));
+}
+
+export async function listSavedTriageViews() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(savedTriageViews).orderBy(desc(savedTriageViews.updatedAt));
+}
+
+export async function createSavedTriageView(values: { name: string; stackTerms: string[]; severities: ("Critical" | "High" | "Medium" | "Low")[]; enabled: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const result = await db.insert(savedTriageViews).values(values);
+  return Number(result[0].insertId);
+}
+
+export async function updateSavedTriageView(id: number, values: { name?: string; stackTerms?: string[]; severities?: ("Critical" | "High" | "Medium" | "Low")[]; enabled?: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.update(savedTriageViews).set({ ...values, updatedAt: new Date() }).where(eq(savedTriageViews.id, id));
+}
+
+export async function deleteSavedTriageView(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.delete(savedTriageViews).where(eq(savedTriageViews.id, id));
+}
+
+export async function getRetentionPolicy() {
+  const db = await getDb();
+  if (!db) return undefined;
+  let policy = (await db.select().from(intelligenceRetentionPolicies).orderBy(intelligenceRetentionPolicies.id).limit(1))[0];
+  if (!policy) {
+    const result = await db.insert(intelligenceRetentionPolicies).values({ retentionDays: 90, enabled: false, lastPurgedCount: 0 });
+    policy = (await db.select().from(intelligenceRetentionPolicies).where(eq(intelligenceRetentionPolicies.id, Number(result[0].insertId))).limit(1))[0];
+  }
+  return policy;
+}
+
+export async function getRetentionPolicyByTaskUid(taskUid: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(intelligenceRetentionPolicies).where(eq(intelligenceRetentionPolicies.scheduleCronTaskUid, taskUid)).limit(1))[0];
+}
+
+export async function updateRetentionPolicy(id: number, values: { retentionDays?: number; enabled?: boolean; scheduleCronTaskUid?: string | null; lastRunAt?: Date; lastPurgedCount?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.update(intelligenceRetentionPolicies).set({ ...values, updatedAt: new Date() }).where(eq(intelligenceRetentionPolicies.id, id));
+}
+
+export async function previewRetentionPurge(retentionDays: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const cutoff = retentionCutoff(retentionDays);
+  const rows = await db.select({ count: sql<number>`count(*)`, oldest: sql<Date | null>`min(${threatItems.ingestionTimestamp})` }).from(threatItems).where(lt(threatItems.ingestionTimestamp, cutoff));
+  return { cutoff, candidateCount: Number(rows[0]?.count ?? 0), oldestIngestionAt: rows[0]?.oldest ?? null };
+}
+
+/** Deletes aged threat and map records only. Append-only audit entries are intentionally never removed. */
+export async function purgeExpiredThreats(retentionDays: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const cutoff = retentionCutoff(retentionDays);
+  const rows = await db.select({ id: threatItems.id }).from(threatItems).where(lt(threatItems.ingestionTimestamp, cutoff));
+  const ids = rows.map(row => row.id);
+  if (!ids.length) return { cutoff, purgedCount: 0 };
+  await db.delete(geoObservations).where(inArray(geoObservations.threatItemId, ids));
+  await db.delete(threatItems).where(inArray(threatItems.id, ids));
+  return { cutoff, purgedCount: ids.length };
 }

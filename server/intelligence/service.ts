@@ -14,6 +14,7 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { notifyOwner } from "../_core/notification";
 import { appendAuditEvent } from "./audit";
+import { deliverWebhookAlert } from "./collaboration";
 import { enrichThreat } from "./extraction";
 import { matchAlertRoutes } from "./routing";
 import { fetchSourceThreats } from "./sources";
@@ -71,6 +72,18 @@ export async function ingestSource(sourceId: number, actor: IngestionActor) {
           entityId: String(stored.id),
           payload: { delivered, zeroDayFlag: enriched.zeroDayFlag, severity: enriched.severity, routeIds: ownerRoutes.map(route => route.id), routeNames: ownerRoutes.map(route => route.name), fallback: defaultAlert },
         });
+      }
+      if (stored.created) {
+        for (const route of matchedRoutes) {
+          if (route.channel !== "slack_webhook" && route.channel !== "teams_webhook") continue;
+          const delivery = await deliverWebhookAlert(route.channel, {
+            title: enriched.zeroDayFlag ? "Zero-day indicator detected" : "Threat-intelligence alert",
+            detail: `${enriched.cveId ?? enriched.title} · ${source.name} · ${enriched.severity}`,
+            sourceUrl: enriched.sourceUrl,
+            severity: enriched.severity,
+          });
+          await appendAuditEvent({ actor: { kind: "system" }, eventType: "notification.webhook", entityType: "threat", entityId: String(stored.id), payload: { routeId: route.id, routeName: route.name, channel: route.channel, ...delivery } });
+        }
       }
     }
     await updateIntelligenceSource(source.id, { lastSuccessAt: new Date(), lastError: null });
