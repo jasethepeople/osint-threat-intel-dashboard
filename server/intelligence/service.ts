@@ -15,6 +15,7 @@ import { invokeLLM } from "../_core/llm";
 import { notifyOwner } from "../_core/notification";
 import { appendAuditEvent } from "./audit";
 import { enrichThreat } from "./extraction";
+import { matchAlertRoutes } from "./routing";
 import { fetchSourceThreats } from "./sources";
 import type { IngestionActor } from "./types";
 
@@ -52,17 +53,23 @@ export async function ingestSource(sourceId: number, actor: IngestionActor) {
           created: stored.created,
         },
       });
-      if (stored.created && (enriched.severity === "Critical" || enriched.zeroDayFlag)) {
+      const matchedRoutes = stored.created ? await matchAlertRoutes(enriched) : [];
+      const defaultAlert = stored.created && !matchedRoutes.length && (enriched.severity === "Critical" || enriched.zeroDayFlag);
+      const ownerRoutes = matchedRoutes.filter(route => route.channel === "owner_in_app");
+      if (stored.created && matchedRoutes.length) {
+        await appendAuditEvent({ actor: { kind: "system" }, eventType: "alert-route.matched", entityType: "threat", entityId: String(stored.id), payload: { routeIds: matchedRoutes.map(route => route.id), routeNames: matchedRoutes.map(route => route.name), channels: matchedRoutes.map(route => route.channel) } });
+      }
+      if (stored.created && (ownerRoutes.length || defaultAlert)) {
         const delivered = await notifyOwner({
           title: enriched.zeroDayFlag ? "Zero-day indicator detected" : "Critical threat detected",
-          content: `${enriched.cveId ?? enriched.title} · ${source.name} · ${enriched.severity}`,
+          content: `${enriched.cveId ?? enriched.title} · ${source.name} · ${enriched.severity}${ownerRoutes.length ? ` · routes: ${ownerRoutes.map(route => route.name).join(", ")}` : " · default route"}`,
         });
         await appendAuditEvent({
           actor: { kind: "system" },
           eventType: "notification.critical-threat",
           entityType: "threat",
           entityId: String(stored.id),
-          payload: { delivered, zeroDayFlag: enriched.zeroDayFlag, severity: enriched.severity },
+          payload: { delivered, zeroDayFlag: enriched.zeroDayFlag, severity: enriched.severity, routeIds: ownerRoutes.map(route => route.id), routeNames: ownerRoutes.map(route => route.name), fallback: defaultAlert },
         });
       }
     }

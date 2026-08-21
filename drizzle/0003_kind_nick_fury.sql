@@ -1,0 +1,1 @@
+ALTER TABLE `threat_alert_routes` MODIFY COLUMN `channel` enum('owner_in_app','audit_only') NOT NULL DEFAULT 'owner_in_app';

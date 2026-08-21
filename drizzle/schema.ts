@@ -28,6 +28,7 @@ export const users = mysqlTable("users", {
 export const sourceKinds = ["nvd", "github", "rss"] as const;
 export const severityTiers = ["Critical", "High", "Medium", "Low"] as const;
 export const auditActorKinds = ["system", "user", "schedule"] as const;
+export const alertChannels = ["owner_in_app", "audit_only"] as const;
 
 /** Configurable, source-specific polling state. */
 export const intelligenceSources = mysqlTable(
@@ -123,6 +124,38 @@ export const geoObservations = mysqlTable(
   table => [index("geo_observations_threat_idx").on(table.threatItemId)]
 );
 
+/** Organization-defined software and platform terms to monitor in normalized threats. */
+export const threatWatchlists = mysqlTable(
+  "threat_watchlists",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 120 }).notNull(),
+    stackTerms: json("stackTerms").$type<string[]>().notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("threat_watchlists_enabled_idx").on(table.enabled)]
+);
+
+/** Rule-driven delivery controls for the project owner notification channel. */
+export const threatAlertRoutes = mysqlTable(
+  "threat_alert_routes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 120 }).notNull(),
+    watchlistId: int("watchlistId"),
+    minSeverity: mysqlEnum("minSeverity", severityTiers).default("Critical").notNull(),
+    includeZeroDays: boolean("includeZeroDays").default(true).notNull(),
+    includeKnownExploited: boolean("includeKnownExploited").default(false).notNull(),
+    channel: mysqlEnum("channel", alertChannels).default("owner_in_app").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("threat_alert_routes_enabled_idx").on(table.enabled), index("threat_alert_routes_watchlist_idx").on(table.watchlistId)]
+);
+
 /** Append-only hash-chain records. Database helpers only append; integrity can be checked at read time. */
 export const auditEvents = mysqlTable(
   "audit_events",
@@ -149,3 +182,5 @@ export type InsertUser = typeof users.$inferInsert;
 export type IntelligenceSource = typeof intelligenceSources.$inferSelect;
 export type ThreatItem = typeof threatItems.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
+export type ThreatWatchlist = typeof threatWatchlists.$inferSelect;
+export type ThreatAlertRoute = typeof threatAlertRoutes.$inferSelect;

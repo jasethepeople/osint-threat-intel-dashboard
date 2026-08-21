@@ -18,3 +18,10 @@
 - [x] Add deterministic tests for audit-chain record verification, report payload assembly, and source idempotency keys.
 - [x] Validate source failure handling and the full ingestion pathway with documented, non-mocked source-adapter checks.
 - [x] Run a live SecurityWeek ingestion end to end and verify persisted records, map observations, append-only audit entries, and audit-chain validity.
+- [x] Add organization-specific stack watchlists with create, edit, delete, and active-state controls.
+- [x] Add configurable alert-routing rules that match critical threat attributes to owner-notification destinations.
+- [x] Add a concise daily-digest operating guide within the Report Generator workflow.
+- [x] Re-verify the enhanced dashboard, save a checkpoint, and provide the required publication and scheduling instructions.
+- [x] Add in-place editing for existing watchlist names and stack terms.
+- [x] Add in-place editing for existing owner-alert rule criteria and selectable owner delivery-channel settings.
+- [x] Add selectable immediate owner-notification and audit-only delivery channels to alert routes.

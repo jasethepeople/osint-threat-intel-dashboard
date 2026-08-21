@@ -15,6 +15,20 @@
       "when": 1787309852819,
       "tag": "0001_last_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1787316283059,
+      "tag": "0002_ambiguous_vargas",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1787316816354,
+      "tag": "0003_kind_nick_fury",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,9 @@ import {
   ingestionRuns,
   intelligenceSources,
   InsertUser,
+  threatAlertRoutes,
   threatItems,
+  threatWatchlists,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -200,4 +202,68 @@ export async function getDashboardCounts() {
     counts.total += count;
   }
   return counts;
+}
+
+export async function listWatchlists() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(threatWatchlists).orderBy(desc(threatWatchlists.updatedAt));
+}
+
+export async function listEnabledWatchlists() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(threatWatchlists).where(eq(threatWatchlists.enabled, true));
+}
+
+export async function createWatchlist(values: { name: string; stackTerms: string[]; enabled: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const result = await db.insert(threatWatchlists).values(values);
+  return Number(result[0].insertId);
+}
+
+export async function updateWatchlist(id: number, values: { name?: string; stackTerms?: string[]; enabled?: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.update(threatWatchlists).set({ ...values, updatedAt: new Date() }).where(eq(threatWatchlists.id, id));
+}
+
+export async function deleteWatchlist(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  // Keep rules valid after a watchlist removal by turning them into global rules.
+  await db.update(threatAlertRoutes).set({ watchlistId: null, updatedAt: new Date() }).where(eq(threatAlertRoutes.watchlistId, id));
+  await db.delete(threatWatchlists).where(eq(threatWatchlists.id, id));
+}
+
+export async function listAlertRoutes() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(threatAlertRoutes).orderBy(desc(threatAlertRoutes.updatedAt));
+}
+
+export async function listEnabledAlertRoutes() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(threatAlertRoutes).where(eq(threatAlertRoutes.enabled, true));
+}
+
+export async function createAlertRoute(values: { name: string; watchlistId: number | null; minSeverity: "Critical" | "High" | "Medium" | "Low"; includeZeroDays: boolean; includeKnownExploited: boolean; channel: "owner_in_app" | "audit_only"; enabled: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const result = await db.insert(threatAlertRoutes).values(values);
+  return Number(result[0].insertId);
+}
+
+export async function updateAlertRoute(id: number, values: { name?: string; watchlistId?: number | null; minSeverity?: "Critical" | "High" | "Medium" | "Low"; includeZeroDays?: boolean; includeKnownExploited?: boolean; channel?: "owner_in_app" | "audit_only"; enabled?: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.update(threatAlertRoutes).set({ ...values, updatedAt: new Date() }).where(eq(threatAlertRoutes.id, id));
+}
+
+export async function deleteAlertRoute(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.delete(threatAlertRoutes).where(eq(threatAlertRoutes.id, id));
 }

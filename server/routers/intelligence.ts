@@ -4,11 +4,19 @@ import { COOKIE_NAME } from "../../shared/const";
 import {
   getDashboardCounts,
   getThreat,
+  createAlertRoute,
+  createWatchlist,
+  deleteAlertRoute,
+  deleteWatchlist,
   listAuditEvents,
+  listAlertRoutes,
   listIntelligenceSources,
   listMapObservations,
   listThreats,
+  listWatchlists,
+  updateAlertRoute,
   updateIntelligenceSource,
+  updateWatchlist,
 } from "../db";
 import { createHeartbeatJob, updateHeartbeatJob } from "../_core/heartbeat";
 import { appendAuditEvent, verifyAuditChain } from "../intelligence/audit";
@@ -17,6 +25,8 @@ import { adminProcedure, router } from "../_core/trpc";
 
 const intervalSchema = z.number().int().min(15).max(60);
 const severitySchema = z.enum(["Critical", "High", "Medium", "Low"]);
+const alertChannelSchema = z.enum(["owner_in_app", "audit_only"]);
+const stackTermsSchema = z.array(z.string().trim().min(1).max(80)).min(1).max(24);
 
 function cronForInterval(minutes: number): string {
   return `0 */${minutes} * * * *`;
@@ -69,4 +79,38 @@ export const intelligenceRouter = router({
   }),
   generateBrief: adminProcedure.input(z.object({ threatId: z.number().int().positive() })).mutation(({ ctx, input }) => generateThreatBrief(input.threatId, actor(ctx))),
   generateDailyDigest: adminProcedure.mutation(({ ctx }) => generateDailyDigest(actor(ctx))),
+  watchlists: adminProcedure.query(() => listWatchlists()),
+  createWatchlist: adminProcedure.input(z.object({ name: z.string().trim().min(2).max(120), stackTerms: stackTermsSchema, enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+    const id = await createWatchlist({ ...input, stackTerms: Array.from(new Set(input.stackTerms.map(term => term.trim()))) });
+    await appendAuditEvent({ actor: actor(ctx), eventType: "watchlist.created", entityType: "watchlist", entityId: String(id), payload: { name: input.name, stackTerms: input.stackTerms, enabled: input.enabled } });
+    return { id };
+  }),
+  updateWatchlist: adminProcedure.input(z.object({ id: z.number().int().positive(), name: z.string().trim().min(2).max(120).optional(), stackTerms: stackTermsSchema.optional(), enabled: z.boolean().optional() })).mutation(async ({ ctx, input }) => {
+    const { id, ...values } = input;
+    await updateWatchlist(id, values);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "watchlist.updated", entityType: "watchlist", entityId: String(id), payload: values });
+    return { id };
+  }),
+  deleteWatchlist: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    await deleteWatchlist(input.id);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "watchlist.deleted", entityType: "watchlist", entityId: String(input.id), payload: {} });
+    return { id: input.id };
+  }),
+  alertRoutes: adminProcedure.query(() => listAlertRoutes()),
+  createAlertRoute: adminProcedure.input(z.object({ name: z.string().trim().min(2).max(120), watchlistId: z.number().int().positive().nullable(), minSeverity: severitySchema, includeZeroDays: z.boolean(), includeKnownExploited: z.boolean(), channel: alertChannelSchema.default("owner_in_app"), enabled: z.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+    const id = await createAlertRoute(input);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "alert-route.created", entityType: "alert-route", entityId: String(id), payload: input });
+    return { id };
+  }),
+  updateAlertRoute: adminProcedure.input(z.object({ id: z.number().int().positive(), name: z.string().trim().min(2).max(120).optional(), watchlistId: z.number().int().positive().nullable().optional(), minSeverity: severitySchema.optional(), includeZeroDays: z.boolean().optional(), includeKnownExploited: z.boolean().optional(), channel: alertChannelSchema.optional(), enabled: z.boolean().optional() })).mutation(async ({ ctx, input }) => {
+    const { id, ...values } = input;
+    await updateAlertRoute(id, values);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "alert-route.updated", entityType: "alert-route", entityId: String(id), payload: values });
+    return { id };
+  }),
+  deleteAlertRoute: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    await deleteAlertRoute(input.id);
+    await appendAuditEvent({ actor: actor(ctx), eventType: "alert-route.deleted", entityType: "alert-route", entityId: String(input.id), payload: {} });
+    return { id: input.id };
+  }),
 });
