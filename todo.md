@@ -29,3 +29,7 @@
 - [x] Add saved business-unit triage views that scope retained records by named stack terms and severity.
 - [x] Add a configurable aging-intelligence retention policy with safe preview and explicit operator execution.
 - [x] Add tests and interface verification for collaboration routing, saved views, and retention controls.
+- [x] Add audit-derived lifecycle-history data for archived and purged intelligence records.
+- [x] Build an interactive retention timeline with filtering, event details, and audit-evidence linking.
+- [x] Add tests, visual verification, and a checkpoint for the retention timeline enhancement.
+- [x] Save the verified retention timeline enhancement as a new project checkpoint.

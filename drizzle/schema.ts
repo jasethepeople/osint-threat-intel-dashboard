@@ -187,6 +187,26 @@ export const intelligenceRetentionPolicies = mysqlTable(
   table => [index("intelligence_retention_policy_schedule_idx").on(table.scheduleCronTaskUid)]
 );
 
+/** Minimal immutable manifest retained for timeline evidence after a threat record is purged. */
+export const retentionArchiveManifests = mysqlTable(
+  "retention_archive_manifests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    retentionPolicyId: int("retentionPolicyId").notNull(),
+    batchId: varchar("batchId", { length: 36 }).notNull(),
+    originalThreatId: int("originalThreatId").notNull(),
+    cveId: varchar("cveId", { length: 64 }),
+    ghsaId: varchar("ghsaId", { length: 64 }),
+    title: text("title").notNull(),
+    severity: mysqlEnum("severity", severityTiers).notNull(),
+    affectedStack: json("affectedStack").$type<string[]>().notNull(),
+    sourceUrl: text("sourceUrl").notNull(),
+    originalIngestionAt: timestamp("originalIngestionAt").notNull(),
+    archivedAt: timestamp("archivedAt").defaultNow().notNull(),
+  },
+  table => [index("retention_archive_batch_idx").on(table.batchId), index("retention_archive_archived_idx").on(table.archivedAt)]
+);
+
 /** Append-only hash-chain records. Database helpers only append; integrity can be checked at read time. */
 export const auditEvents = mysqlTable(
   "audit_events",
@@ -217,3 +237,4 @@ export type ThreatWatchlist = typeof threatWatchlists.$inferSelect;
 export type ThreatAlertRoute = typeof threatAlertRoutes.$inferSelect;
 export type SavedTriageView = typeof savedTriageViews.$inferSelect;
 export type IntelligenceRetentionPolicy = typeof intelligenceRetentionPolicies.$inferSelect;
+export type RetentionArchiveManifest = typeof retentionArchiveManifests.$inferSelect;

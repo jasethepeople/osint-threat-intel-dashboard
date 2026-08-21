@@ -14,6 +14,7 @@ import {
   listAuditEvents,
   listAlertRoutes,
   listIntelligenceSources,
+  listRetentionLifecycle,
   listMapObservations,
   listThreats,
   listWatchlists,
@@ -143,6 +144,7 @@ export const intelligenceRouter = router({
     return { id: input.id };
   }),
   retentionPolicy: adminProcedure.query(() => getRetentionPolicy()),
+  retentionTimeline: adminProcedure.input(z.object({ limit: z.number().int().min(1).max(250).default(100) })).query(({ input }) => listRetentionLifecycle(input.limit)),
   retentionPreview: adminProcedure.input(z.object({ retentionDays: retentionDaysSchema.optional() })).query(async ({ input }) => {
     const policy = await getRetentionPolicy();
     if (!policy) throw new Error("Retention policy unavailable");

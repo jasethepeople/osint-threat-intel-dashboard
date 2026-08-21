@@ -36,6 +36,13 @@
       "when": 1787329235404,
       "tag": "0004_nice_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1787335876105,
+      "tag": "0005_lying_synch",
+      "breakpoints": true
     }
   ]
 }

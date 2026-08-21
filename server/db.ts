@@ -7,6 +7,7 @@ import {
   intelligenceSources,
   intelligenceRetentionPolicies,
   InsertUser,
+  retentionArchiveManifests,
   savedTriageViews,
   threatAlertRoutes,
   threatItems,
@@ -194,6 +195,16 @@ export async function listAuditEvents(limit = 100) {
   return db.select().from(auditEvents).orderBy(desc(auditEvents.id)).limit(limit);
 }
 
+export async function listRetentionLifecycle(limit = 100) {
+  const db = await getDb();
+  if (!db) return { auditEvents: [], archivedRecords: [] };
+  const [events, records] = await Promise.all([
+    db.select().from(auditEvents).where(sql`${auditEvents.eventType} like 'retention.%'`).orderBy(desc(auditEvents.id)).limit(limit),
+    db.select().from(retentionArchiveManifests).orderBy(desc(retentionArchiveManifests.archivedAt)).limit(limit),
+  ]);
+  return { auditEvents: events, archivedRecords: records };
+}
+
 export async function getDashboardCounts() {
   const db = await getDb();
   if (!db) return { Critical: 0, High: 0, Medium: 0, Low: 0, total: 0 };
@@ -327,15 +338,17 @@ export async function previewRetentionPurge(retentionDays: number) {
   return { cutoff, candidateCount: Number(rows[0]?.count ?? 0), oldestIngestionAt: rows[0]?.oldest ?? null };
 }
 
-/** Deletes aged threat and map records only. Append-only audit entries are intentionally never removed. */
-export async function purgeExpiredThreats(retentionDays: number) {
+/** Archives a minimal manifest, then deletes aged threat and map records. Append-only audit entries remain immutable. */
+export async function purgeExpiredThreats(retentionDays: number, retentionPolicyId: number, batchId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   const cutoff = retentionCutoff(retentionDays);
-  const rows = await db.select({ id: threatItems.id }).from(threatItems).where(lt(threatItems.ingestionTimestamp, cutoff));
+  const rows = await db.select({ id: threatItems.id, cveId: threatItems.cveId, ghsaId: threatItems.ghsaId, title: threatItems.title, severity: threatItems.severity, affectedStack: threatItems.affectedStack, sourceUrl: threatItems.sourceUrl, ingestionTimestamp: threatItems.ingestionTimestamp }).from(threatItems).where(lt(threatItems.ingestionTimestamp, cutoff));
   const ids = rows.map(row => row.id);
   if (!ids.length) return { cutoff, purgedCount: 0 };
+  const archivedAt = new Date();
+  await db.insert(retentionArchiveManifests).values(rows.map(row => ({ retentionPolicyId, batchId, originalThreatId: row.id, cveId: row.cveId, ghsaId: row.ghsaId, title: row.title, severity: row.severity, affectedStack: row.affectedStack, sourceUrl: row.sourceUrl, originalIngestionAt: row.ingestionTimestamp, archivedAt })));
   await db.delete(geoObservations).where(inArray(geoObservations.threatItemId, ids));
   await db.delete(threatItems).where(inArray(threatItems.id, ids));
-  return { cutoff, purgedCount: ids.length };
+  return { cutoff, purgedCount: ids.length, batchId };
 }
